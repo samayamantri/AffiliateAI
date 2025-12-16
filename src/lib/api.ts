@@ -413,44 +413,70 @@ export const dataService = {
   },
 
   getPerformance: async (personId: string): Promise<PerformanceData> => {
-    const response = await fetchAPI<ChartDataResponse>(`/api/analytics/${personId}/chart-data`);
-    
-    // Extract history data for monthly breakdown
-    const history = response.performance_history?.history || [];
-    const lastMonth = history[history.length - 1];
-    const previousMonth = history[history.length - 2];
-    
-    // Calculate growth
-    const currentGsv = lastMonth?.gsv || 0;
-    const previousGsv = previousMonth?.gsv || 0;
-    const growth = previousGsv > 0 ? ((currentGsv - previousGsv) / previousGsv) * 100 : 0;
-    
-    return {
-      monthly: history.map(h => ({
-        month: h.month_label,
-        sales: h.gsv,
-        volume: h.gsv,
-        gsv: h.gsv,
-        csv: h.csv,
-      })),
-      currentMonth: {
-        sales: currentGsv,
-        volume: currentGsv,
-        gsv: currentGsv,
-        csv: lastMonth?.csv || 0,
-        growth: response.performance_history?.metrics?.monthly_growth_rate || growth,
-      },
-      chartData: {
-        labels: response.performance_chart?.labels || [],
-        datasets: response.performance_chart?.datasets?.map(ds => ({
-          label: ds.label,
-          data: ds.data,
-          borderColor: ds.borderColor,
-          backgroundColor: ds.backgroundColor,
-        })) || [],
-      },
-      growthMetrics: response.growth_metrics || [],
-    };
+    try {
+      const response = await fetchAPI<ChartDataResponse>(`/api/analytics/${personId}/chart-data`);
+      
+      // Check if response contains an error detail (backend sometimes returns 200 with error)
+      if ((response as { detail?: string }).detail) {
+        console.warn('[API] Performance chart has error:', (response as { detail?: string }).detail);
+        throw new Error((response as { detail?: string }).detail);
+      }
+      
+      // Extract history data for monthly breakdown
+      const history = response.performance_history?.history || [];
+      const lastMonth = history[history.length - 1];
+      const previousMonth = history[history.length - 2];
+      
+      // Calculate growth
+      const currentGsv = lastMonth?.gsv || 0;
+      const previousGsv = previousMonth?.gsv || 0;
+      const growth = previousGsv > 0 ? ((currentGsv - previousGsv) / previousGsv) * 100 : 0;
+      
+      return {
+        monthly: history.map(h => ({
+          month: h.month_label,
+          sales: h.gsv,
+          volume: h.gsv,
+          gsv: h.gsv,
+          csv: h.csv,
+        })),
+        currentMonth: {
+          sales: currentGsv,
+          volume: currentGsv,
+          gsv: currentGsv,
+          csv: lastMonth?.csv || 0,
+          growth: response.performance_history?.metrics?.monthly_growth_rate || growth,
+        },
+        chartData: {
+          labels: response.performance_chart?.labels || [],
+          datasets: response.performance_chart?.datasets?.map(ds => ({
+            label: ds.label,
+            data: ds.data,
+            borderColor: ds.borderColor,
+            backgroundColor: ds.backgroundColor,
+          })) || [],
+        },
+        growthMetrics: response.growth_metrics || [],
+      };
+    } catch (error) {
+      console.warn('[API] Performance fetch failed, returning empty data:', error);
+      // Return empty performance data structure
+      return {
+        monthly: [],
+        currentMonth: {
+          sales: 0,
+          volume: 0,
+          gsv: 0,
+          csv: 0,
+          growth: 0,
+        },
+        chartData: {
+          labels: [],
+          datasets: [],
+        },
+        growthMetrics: [],
+      };
+    }
   },
 
   getQualifications: async (personId: string): Promise<QualificationData> => {

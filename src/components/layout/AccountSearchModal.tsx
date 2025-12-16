@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -9,7 +9,6 @@ import {
   Clock,
   ChevronRight,
   Loader2,
-  Users,
   Star,
 } from 'lucide-react';
 import { useAccount } from '@/context/AccountContext';
@@ -57,6 +56,10 @@ export function AccountSearchModal({ isOpen, onClose }: AccountSearchModalProps)
   const [recentAccounts, setRecentAccounts] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Track the current search request to prevent race conditions
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const latestSearchRef = useRef<string>('');
 
   // Load recent accounts on mount
   useEffect(() => {
@@ -65,15 +68,34 @@ export function AccountSearchModal({ isOpen, onClose }: AccountSearchModalProps)
       setSearchQuery('');
       setSearchResults([]);
       setError(null);
+    } else {
+      // Cancel any pending requests when modal closes
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
     }
   }, [isOpen]);
 
-  // Search for accounts
+  // Search for accounts with race condition prevention
   const searchAccounts = useCallback(async (query: string) => {
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
     if (!query.trim()) {
       setSearchResults([]);
+      setError(null);
       return;
     }
+
+    // Track this as the latest search
+    latestSearchRef.current = query;
+    
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     setLoading(true);
     setError(null);
@@ -81,7 +103,15 @@ export function AccountSearchModal({ isOpen, onClose }: AccountSearchModalProps)
     try {
       // If query is a number, search by ID directly
       if (/^\d+$/.test(query)) {
-        const response = await fetch(`${API_URL}/api/accounts/${query}/overview`);
+        const response = await fetch(`${API_URL}/api/accounts/${query}/overview`, {
+          signal: abortController.signal,
+        });
+        
+        // Check if this is still the most recent search
+        if (latestSearchRef.current !== query) {
+          return; // Ignore stale response
+        }
+        
         if (response.ok) {
           const data = await response.json();
           setSearchResults([{
@@ -105,11 +135,22 @@ export function AccountSearchModal({ isOpen, onClose }: AccountSearchModalProps)
         setSearchResults([]);
       }
     } catch (err) {
-      console.error('Search error:', err);
-      setError('Unable to connect to server');
-      setSearchResults([]);
+      // Ignore abort errors - they're expected when we cancel requests
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      
+      // Only update state if this is still the current search
+      if (latestSearchRef.current === query) {
+        console.error('Search error:', err);
+        setError('Unable to connect to server');
+        setSearchResults([]);
+      }
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the current search
+      if (latestSearchRef.current === query) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -118,11 +159,23 @@ export function AccountSearchModal({ isOpen, onClose }: AccountSearchModalProps)
     const timer = setTimeout(() => {
       if (searchQuery) {
         searchAccounts(searchQuery);
+      } else {
+        setSearchResults([]);
+        setError(null);
       }
     }, 300);
 
     return () => clearTimeout(timer);
   }, [searchQuery, searchAccounts]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const handleSelectAccount = (account: SearchResult) => {
     addRecentAccount(account);
@@ -356,4 +409,3 @@ export function AccountSearchModal({ isOpen, onClose }: AccountSearchModalProps)
     </AnimatePresence>
   );
 }
-
