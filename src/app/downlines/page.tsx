@@ -18,6 +18,7 @@ import {
   Activity,
   AlertCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { StatCard } from '@/components/ui/StatCard';
 import { useDownlineData } from '@/hooks/useApiData';
@@ -27,7 +28,7 @@ import { useAccount } from '@/context/AccountContext';
 type FilterType = 'all' | 'active' | 'inactive' | 'at-risk';
 
 export default function DownlinesPage() {
-  const { accountData } = useAccount();
+  const { accountData, capabilities } = useAccount();
   const { data: downlines, loading } = useDownlineData();
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -41,6 +42,41 @@ export default function DownlinesPage() {
             <div className="w-12 h-12 border-4 border-nuskin-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-gray-500">Loading team data...</p>
           </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Show message for accounts that don't have team building capabilities
+  if (!capabilities.hasDownlines) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center max-w-md mx-auto px-4"
+          >
+            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-nuskin-primary/10 to-nuskin-accent/10 flex items-center justify-center">
+              <Users className="w-10 h-10 text-nuskin-primary" />
+            </div>
+            <h2 className="text-xl font-display font-bold text-gray-900 mb-3">
+              Build Your Team
+            </h2>
+            <p className="text-gray-600 mb-6">
+              As a {capabilities.roleDisplayName}, you can start building your team by becoming an affiliate. 
+              This will unlock team management features and additional earning opportunities.
+            </p>
+            <div className="space-y-3">
+              <Link href="/chat" className="btn-primary w-full flex items-center justify-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Learn About Team Building
+              </Link>
+              <Link href="/" className="btn-secondary w-full">
+                Back to Dashboard
+              </Link>
+            </div>
+          </motion.div>
         </div>
       </MainLayout>
     );

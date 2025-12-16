@@ -26,7 +26,7 @@ import { useAccount } from '@/context/AccountContext';
 import { useDashboardData } from '@/hooks/useApiData';
 
 export default function Dashboard() {
-  const { accountData, accountId, loading: accountLoading, error: accountError } = useAccount();
+  const { accountData, accountId, loading: accountLoading, error: accountError, capabilities } = useAccount();
   const { data, loading: dataLoading, error: dataError, refetch } = useDashboardData();
 
   const loading = accountLoading || dataLoading;
@@ -143,20 +143,40 @@ export default function Dashboard() {
           </Link>
         </motion.div>
 
-        {/* 🎯 QUALIFICATION PROGRESS - TOP OF PAGE */}
-        {data?.qualifications && (
+        {/* 🎯 QUALIFICATION PROGRESS - TOP OF PAGE (Only for affiliates/leaders) */}
+        {capabilities.hasQualifications && data?.qualifications && qualificationRequirements.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
             <QualificationProgress
-              currentRank={data.qualifications.currentRank || data.qualifications.current_rank || accountData?.title || 'Member'}
+              currentRank={data.qualifications.currentRank || data.qualifications.current_rank || accountData?.title || capabilities.roleDisplayName}
               nextRank={data.qualifications.nextRank || data.qualifications.next_rank || 'Next Level'}
               overallProgress={data.qualifications.progress || data.qualifications.metrics?.success_rate || 0}
               requirements={qualificationRequirements}
               monthsQualified={data.qualifications.monthsQualified || data.qualifications.metrics?.met_qualifications || 0}
             />
+          </motion.div>
+        )}
+
+        {/* Welcome message for customers/brand reps without qualifications */}
+        {!capabilities.hasQualifications && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="card p-6 bg-gradient-to-r from-nuskin-light to-blue-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-nuskin-primary to-nuskin-accent flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Welcome, {capabilities.roleDisplayName}!</h3>
+                <p className="text-sm text-gray-600">Explore our products and track your purchases below.</p>
+              </div>
+            </div>
           </motion.div>
         )}
 
@@ -231,17 +251,19 @@ export default function Dashboard() {
                 delay={1}
               />
             </div>
-            <div className="w-36 md:w-auto flex-shrink-0 md:flex-shrink">
-              <StatCard
-                title="Team Members"
-                value={currentStats.totalDownlines}
-                change={4.5}
-                icon={Users}
-                iconColor="text-nuskin-secondary"
-                description={`${currentStats.activeDownlines} active`}
-                delay={2}
-              />
-            </div>
+            {capabilities.hasDownlines && (
+              <div className="w-36 md:w-auto flex-shrink-0 md:flex-shrink">
+                <StatCard
+                  title="Team Members"
+                  value={currentStats.totalDownlines}
+                  change={4.5}
+                  icon={Users}
+                  iconColor="text-nuskin-secondary"
+                  description={`${currentStats.activeDownlines} active`}
+                  delay={2}
+                />
+              </div>
+            )}
             <div className="w-36 md:w-auto flex-shrink-0 md:flex-shrink">
               <StatCard
                 title="Subscriptions"
@@ -250,7 +272,7 @@ export default function Dashboard() {
                 icon={Package}
                 iconColor="text-purple-600"
                 description={`${data?.subscriptions?.activeSubscriptions || 0} active`}
-                delay={3}
+                delay={capabilities.hasDownlines ? 3 : 2}
               />
             </div>
           </div>
@@ -316,8 +338,8 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        {/* Team Preview */}
-        {data?.downlines && data.downlines.length > 0 && (
+        {/* Team Preview - Only for affiliates/leaders */}
+        {capabilities.hasDownlines && data?.downlines && data.downlines.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

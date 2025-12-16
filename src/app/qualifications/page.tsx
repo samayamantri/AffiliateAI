@@ -13,10 +13,12 @@ import {
   Sparkles,
   Info,
 } from 'lucide-react';
+import Link from 'next/link';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { useQualificationData } from '@/hooks/useApiData';
+import { useAccount } from '@/context/AccountContext';
 import { cn, getRankColor } from '@/lib/utils';
 
 const rankPath = [
@@ -31,6 +33,7 @@ const rankPath = [
 ];
 
 export default function QualificationsPage() {
+  const { capabilities } = useAccount();
   const { data: qualifications, loading } = useQualificationData();
 
   if (loading) {
@@ -41,6 +44,41 @@ export default function QualificationsPage() {
             <div className="w-12 h-12 border-4 border-nuskin-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-gray-500">Loading qualifications...</p>
           </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Show message for accounts that don't have qualification tracking
+  if (!capabilities.hasQualifications) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center max-w-md mx-auto px-4"
+          >
+            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-nuskin-primary/10 to-nuskin-accent/10 flex items-center justify-center">
+              <Target className="w-10 h-10 text-nuskin-primary" />
+            </div>
+            <h2 className="text-xl font-display font-bold text-gray-900 mb-3">
+              Unlock Qualifications
+            </h2>
+            <p className="text-gray-600 mb-6">
+              As a {capabilities.roleDisplayName}, qualification tracking becomes available when you start building your business. 
+              Talk to Stela AI to learn about advancement opportunities.
+            </p>
+            <div className="space-y-3">
+              <Link href="/chat" className="btn-primary w-full flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Learn About Qualifications
+              </Link>
+              <Link href="/" className="btn-secondary w-full">
+                Back to Dashboard
+              </Link>
+            </div>
+          </motion.div>
         </div>
       </MainLayout>
     );
