@@ -475,33 +475,58 @@ ${message}`,
 
   } catch (error) {
     console.error('[Chat] Error:', error);
+    
+    // Check for credential expiration
+    const isExpiredToken = String(error).includes('ExpiredTokenException') || 
+                           String(error).includes('expired');
+    
+    if (isExpiredToken) {
+      console.error('[Chat] AWS credentials expired - need to refresh');
+    }
+
+    // Try to get body for fallback
+    let requestBody;
+    try {
+      requestBody = await request.json();
+    } catch {
+      // If body already consumed, use fallback body
+      requestBody = { message: 'hello', person_id: '247' };
+    }
 
     // Fallback to backend API
     try {
-      const body = await request.clone().json();
-      console.log('[Chat] Falling back to backend API');
+      console.log('[Chat] Falling back to backend API at', BACKEND_URL);
 
       const backendResponse = await fetch(`${BACKEND_URL}/api/llm/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
       });
 
       if (backendResponse.ok) {
         const data = await backendResponse.json();
+        console.log('[Chat] Backend fallback successful');
         return Response.json(data);
+      } else {
+        console.log('[Chat] Backend returned status:', backendResponse.status);
       }
     } catch (fallbackError) {
       console.error('[Chat] Fallback error:', fallbackError);
     }
 
+    // Return helpful error message
+    const errorMessage = isExpiredToken 
+      ? 'AWS credentials have expired. Please refresh your AWS session tokens in the .env file.'
+      : 'Failed to connect to AI service. Please check your configuration.';
+
     return Response.json(
       { 
-        error: 'Failed to process chat request', 
+        error: errorMessage,
+        response: `## ⚠️ Connection Issue\n\n${errorMessage}\n\n### What to do:\n1. Check if AWS credentials in \`.env\` are valid\n2. Ensure the backend API at \`localhost:8000\` is running\n3. Try refreshing the page\n\n### Your current session:\n- Account ID: ${requestBody?.person_id || 'Unknown'}\n- Backend: ${BACKEND_URL}`,
         details: String(error),
-        hint: 'Ensure AWS credentials are configured in .env'
+        hint: isExpiredToken ? 'Run `aws configure` or refresh your session tokens' : 'Check AWS credentials and backend server'
       },
-      { status: 500 }
+      { status: isExpiredToken ? 401 : 500 }
     );
   }
 }

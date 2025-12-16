@@ -104,23 +104,105 @@ const suggestedPrompts: SuggestedPrompt[] = [
   },
 ];
 
-// Generate a response when API fails - uses only available account data, no mock values
+// Generate a context-aware response when API fails
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function generateFallbackResponse(query: string, accountData: any): string {
+async function generateSmartFallbackResponse(
+  query: string, 
+  accountData: any,
+  accountId: string
+): Promise<string> {
   const name = accountData?.account?.name || accountData?.name || 'there';
   const firstName = name.split(' ')[0];
   const rank = accountData?.account?.current_title || accountData?.title || 'Member';
   const gsv = accountData?.summary?.gsv || accountData?.stats?.gsv || 0;
   const csv = accountData?.summary?.csv || accountData?.stats?.csv || 0;
   const dcSv = accountData?.summary?.dc_sv || accountData?.stats?.dcSv || 0;
-  const totalDownlines = accountData?.summary?.total_downlines || accountData?.stats?.totalDownlines || 0;
-  const activeDownlines = accountData?.summary?.active_downlines || accountData?.stats?.activeDownlines || 0;
 
-  // Only show chart if we have real data
-  const hasData = gsv > 0 || csv > 0 || dcSv > 0;
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const queryLower = query.toLowerCase();
 
-  const chartBlock = hasData ? `
-\`\`\`chart
+  // Detect what the user is asking about
+  const isQualificationQuery = queryLower.includes('qualification') || queryLower.includes('rank') || queryLower.includes('progress');
+  const isTeamQuery = queryLower.includes('team') || queryLower.includes('downline') || queryLower.includes('who needs');
+  const isNBAQuery = queryLower.includes('priority') || queryLower.includes('action') || queryLower.includes('should i do') || queryLower.includes('recommendation');
+  const isPerformanceQuery = queryLower.includes('performance') || queryLower.includes('how am i doing') || queryLower.includes('stats');
+
+  let response = `# Hey ${firstName}! 👋\n\n`;
+
+  // Try to fetch relevant data based on the question
+  try {
+    if (isQualificationQuery) {
+      const qualData = await fetch(`${backendUrl}/api/accounts/${accountId}/rule-qualifications`).then(r => r.json());
+      if (qualData.qualifications) {
+        response += `## 🎯 Your Qualification Progress\n\n`;
+        response += `**Current Rank:** ${rank}\n\n`;
+        response += `| Requirement | Progress | Status |\n|-------------|----------|--------|\n`;
+        qualData.qualifications.forEach((q: any) => {
+          const status = q.status === 'MET' ? '✅ Met' : `⏳ ${q.progress_percentage}%`;
+          response += `| ${q.name} | ${q.current_progress}/${q.target_value} ${q.unit || ''} | ${status} |\n`;
+        });
+        response += `\n`;
+        
+        // Add qualification chart
+        const metCount = qualData.qualifications.filter((q: any) => q.status === 'MET').length;
+        const totalCount = qualData.qualifications.length;
+        response += `\`\`\`chart
+{
+  "type": "doughnut",
+  "title": "Qualification Progress",
+  "data": {
+    "labels": ["Met", "Pending"],
+    "datasets": [{
+      "data": [${metCount}, ${totalCount - metCount}],
+      "backgroundColor": ["#10B981", "#E5E7EB"]
+    }]
+  }
+}
+\`\`\`\n\n`;
+      }
+    }
+
+    if (isTeamQuery) {
+      const teamData = await fetch(`${backendUrl}/api/accounts/${accountId}/downline`).then(r => r.json());
+      if (teamData.downlines?.length > 0) {
+        response += `## 👥 Your Team Overview\n\n`;
+        response += `| Member | Rank | GSV | Status |\n|--------|------|-----|--------|\n`;
+        teamData.downlines.slice(0, 5).forEach((d: any) => {
+          const status = d.active ? '🟢 Active' : '🔴 Inactive';
+          response += `| ${d.name} | ${d.current_title || 'Member'} | ${(d.gsv || 0).toLocaleString()} | ${status} |\n`;
+        });
+        if (teamData.downlines.length > 5) {
+          response += `\n*...and ${teamData.downlines.length - 5} more team members*\n`;
+        }
+        response += `\n`;
+      }
+    }
+
+    if (isNBAQuery) {
+      const nbaData = await fetch(`${backendUrl}/api/accounts/${accountId}/nba`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      }).then(r => r.json());
+      
+      const actions = nbaData.actions || nbaData.recommendations || [];
+      if (actions.length > 0) {
+        response += `## ⚡ Your Priority Actions\n\n`;
+        actions.slice(0, 3).forEach((a: any, i: number) => {
+          response += `${i + 1}. **${a.title || a.action}**\n   ${a.description || a.reason || ''}\n\n`;
+        });
+      }
+    }
+
+    // Always show current volumes if we have them
+    if (gsv > 0 || csv > 0) {
+      response += `## 📊 Your Current Volumes\n\n`;
+      response += `| Metric | Value |\n|--------|-------|\n`;
+      response += `| Group Sales Volume (GSV) | ${gsv.toLocaleString()} |\n`;
+      response += `| Customer Sales Volume (CSV) | ${csv.toLocaleString()} |\n`;
+      response += `| Direct Customer Sales (DC-SV) | ${dcSv.toLocaleString()} |\n\n`;
+
+      response += `\`\`\`chart
 {
   "type": "bar",
   "title": "Your Current Volumes",
@@ -133,50 +215,28 @@ function generateFallbackResponse(query: string, accountData: any): string {
     }]
   }
 }
-\`\`\`
-` : '';
+\`\`\`\n\n`;
+    }
 
-  const teamChart = totalDownlines > 0 ? `
-\`\`\`chart
-{
-  "type": "doughnut",
-  "title": "Team Activity",
-  "data": {
-    "labels": ["Active", "Inactive"],
-    "datasets": [{
-      "data": [${activeDownlines}, ${totalDownlines - activeDownlines}],
-      "backgroundColor": ["#10B981", "#E5E7EB"]
-    }]
+  } catch (error) {
+    console.error('Fallback data fetch error:', error);
+    // Add basic info if API calls fail
+    response += `## 📊 Your Current Status\n\n`;
+    response += `**Rank:** ${rank}\n\n`;
+    if (gsv > 0) {
+      response += `| Metric | Value |\n|--------|-------|\n`;
+      response += `| GSV | ${gsv.toLocaleString()} |\n`;
+      response += `| CSV | ${csv.toLocaleString()} |\n`;
+    }
   }
-}
-\`\`\`
-` : '';
 
-  return `# Hey ${firstName}! 👋
+  response += `---\n\n*Note: AI assistant is currently running in offline mode. For full functionality, ensure AWS credentials are refreshed.*\n\n`;
+  response += `### 💡 Try asking:\n`;
+  response += `- "Show me my qualification progress"\n`;
+  response += `- "What are my priorities today?"\n`;
+  response += `- "How is my team doing?"\n`;
 
-I'm Stela AI, your business growth companion powered by Claude.
-
-## 📊 Your Current Status
-
-**Rank:** ${rank}
-${hasData ? `
-| Metric | Value |
-|--------|-------|
-| Group Sales Volume (GSV) | ${gsv.toLocaleString()} |
-| Customer Sales Volume (CSV) | ${csv.toLocaleString()} |
-| Direct Customer Sales (DC-SV) | ${dcSv.toLocaleString()} |
-${totalDownlines > 0 ? `| Team Members | ${totalDownlines} (${activeDownlines} active) |` : ''}
-` : ''}
-${chartBlock}
-${teamChart}
-## ⚡ What I Can Help You With
-
-- **"Show me my qualification progress"** - Track your path to the next rank
-- **"What are my priorities today?"** - Get personalized next best actions
-- **"How is my team doing?"** - See your downline performance
-- **"Help me grow my business"** - Get AI-powered recommendations
-
-Ask me anything about your NuSkin business!`;
+  return response;
 }
 
 // NuSkin brand colors for charts
@@ -470,7 +530,7 @@ export function ChatInterface() {
       }
 
       // Generate intelligent fallback response based on the query and available data
-      const fallbackResponse = generateFallbackResponse(messageText, accountData);
+      const fallbackResponse = await generateSmartFallbackResponse(messageText, accountData, accountId);
       const { cleanContent, charts } = parseChartsFromContent(fallbackResponse);
       
       setMessages((prev) =>
