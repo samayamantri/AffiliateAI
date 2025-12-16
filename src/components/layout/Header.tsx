@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAccount } from '@/context/AccountContext';
 import { cn, getInitials, getRankColor } from '@/lib/utils';
+import { AccountSearchModal } from './AccountSearchModal';
 
 export function Header() {
   const { accountId, setAccountId, accountData, loading } = useAccount();
@@ -21,6 +22,7 @@ export function Header() {
   const [showAccountInput, setShowAccountInput] = useState(false);
   const [newAccountId, setNewAccountId] = useState(accountId);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const notifications = [
     { id: 1, title: 'New team member joined', message: 'Emily Chen has joined your downline', time: '2h ago', unread: true },
@@ -40,17 +42,20 @@ export function Header() {
       <div className="flex items-center justify-between h-16 px-6">
         {/* Search */}
         <div className="flex-1 max-w-xl">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search anything..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-100 focus:bg-white focus:border-nuskin-accent focus:ring-2 focus:ring-nuskin-accent/20 transition-all outline-none text-sm"
-            />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 text-xs bg-white rounded border border-gray-200 text-gray-400 hidden md:block">
-              ⌘K
-            </kbd>
-          </div>
+          <button
+            onClick={() => setIsSearchOpen(true)}
+            className="w-full relative"
+          >
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <div className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:bg-white hover:border-gray-200 transition-all text-sm text-left text-gray-400">
+                Search accounts by ID...
+              </div>
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 text-xs bg-white rounded border border-gray-200 text-gray-400 hidden md:block">
+                ⌘K
+              </kbd>
+            </div>
+          </button>
         </div>
 
         {/* Right Section */}
@@ -222,6 +227,12 @@ export function Header() {
           </div>
         </div>
       </div>
+
+      {/* Account Search Modal */}
+      <AccountSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+      />
     </header>
   );
 }

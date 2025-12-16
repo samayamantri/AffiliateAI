@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Bell, Search, Menu, X } from 'lucide-react';
 import { useAccount } from '@/context/AccountContext';
 import { cn } from '@/lib/utils';
+import { AccountSearchModal } from './AccountSearchModal';
 
 interface MobileHeaderProps {
   onMenuOpen: () => void;
@@ -13,36 +14,39 @@ interface MobileHeaderProps {
 }
 
 export function MobileHeader({ onMenuOpen, isMenuOpen }: MobileHeaderProps) {
-  const { accountId, accountData } = useAccount();
-  const userName = accountData?.account?.name?.split(' ')[0] || 'Affiliate';
+  const { accountData } = useAccount();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const userName = accountData?.name?.split(' ')[0] || 'Affiliate';
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-100 safe-area-pt md:hidden">
-      <div className="flex items-center justify-between px-4 py-3">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="relative">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-nuskin-primary to-nuskin-accent flex items-center justify-center shadow-lg">
-              <Sparkles className="w-4 h-4 text-white" />
+    <>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-100 safe-area-pt md:hidden">
+        <div className="flex items-center justify-between px-4 py-3">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2">
+            <div className="relative">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-nuskin-primary to-nuskin-accent flex items-center justify-center shadow-lg">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-nuskin-gold rounded-full border-2 border-white" />
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-nuskin-gold rounded-full border-2 border-white" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-display font-bold text-base gradient-text leading-tight">
-              Stela AI
-            </span>
-            <span className="text-[10px] text-gray-500 -mt-0.5">Hi, {userName}</span>
-          </div>
-        </Link>
+            <div className="flex flex-col">
+              <span className="font-display font-bold text-base gradient-text leading-tight">
+                Stela AI
+              </span>
+              <span className="text-[10px] text-gray-500 -mt-0.5">Hi, {userName}</span>
+            </div>
+          </Link>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center"
-          >
-            <Search className="w-4 h-4 text-gray-500" />
-          </motion.button>
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setIsSearchOpen(true)}
+              className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center"
+            >
+              <Search className="w-4 h-4 text-gray-500" />
+            </motion.button>
           
           <motion.button
             whileTap={{ scale: 0.9 }}
@@ -85,6 +89,13 @@ export function MobileHeader({ onMenuOpen, isMenuOpen }: MobileHeaderProps) {
         </div>
       </div>
     </header>
+
+      {/* Account Search Modal */}
+      <AccountSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+      />
+    </>
   );
 }
 
