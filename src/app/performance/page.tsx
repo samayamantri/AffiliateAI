@@ -145,7 +145,7 @@ export default function PerformancePage() {
           >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="font-semibold text-gray-900">Revenue & Volume Trends</h3>
+                <h3 className="font-semibold text-gray-900">Sales & Volume Trends</h3>
                 <p className="text-sm text-gray-500">Historical performance data</p>
               </div>
               <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1">

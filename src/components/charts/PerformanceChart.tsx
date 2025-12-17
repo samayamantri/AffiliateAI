@@ -102,7 +102,7 @@ export function PerformanceChart({ data, type = 'line' }: PerformanceChartProps)
           label: (context: { dataset: { label?: string }; parsed: { y: number } }) => {
             const label = context.dataset.label || '';
             const value = context.parsed.y;
-            return ` ${label}: $${value.toLocaleString()}`;
+            return ` ${label}: ${value.toLocaleString()}`;
           },
         },
       },
@@ -130,7 +130,7 @@ export function PerformanceChart({ data, type = 'line' }: PerformanceChartProps)
             family: "'Inter', sans-serif",
           },
           color: '#9CA3AF',
-          callback: (value: string | number) => `$${Number(value).toLocaleString()}`,
+          callback: (value: string | number) => Number(value).toLocaleString(),
         },
       },
     },

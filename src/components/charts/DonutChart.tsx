@@ -69,7 +69,7 @@ export function DonutChart({ data, centerLabel, centerValue }: DonutChartProps) 
           label: (context: { label: string; parsed: number; dataset: { data: number[] } }) => {
             const total = context.dataset.data.reduce((a, b) => a + b, 0);
             const percentage = ((context.parsed / total) * 100).toFixed(1);
-            return ` ${context.label}: $${context.parsed.toLocaleString()} (${percentage}%)`;
+            return ` ${context.label}: ${context.parsed.toLocaleString()} (${percentage}%)`;
           },
         },
       },
@@ -83,7 +83,7 @@ export function DonutChart({ data, centerLabel, centerValue }: DonutChartProps) 
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           {centerValue && (
             <span className="text-2xl font-bold text-gray-900">
-              {typeof centerValue === 'number' ? `$${centerValue.toLocaleString()}` : centerValue}
+              {typeof centerValue === 'number' ? centerValue.toLocaleString() : centerValue}
             </span>
           )}
           {centerLabel && (
