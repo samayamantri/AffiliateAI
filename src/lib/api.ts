@@ -541,24 +541,49 @@ export const dataService = {
   },
 
   getDownlines: async (personId: string): Promise<DownlineData[]> => {
-    const response = await fetchAPI<DownlineResponse>(`/api/accounts/${personId}/downline`);
+    // Get current period
+    const now = new Date();
+    const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     
-    // The API returns a tree structure with nodes and edges
-    // Extract nodes as downlines
-    const nodes = response.nodes || response.downlines || [];
+    // Use team-network endpoint which returns actual team data
+    // The /downline endpoint has a backend bug
+    const response = await fetchAPI<{
+      nodes: Array<{
+        id: string;
+        name: string;
+        external_id?: string;
+        title?: string;
+        current_title?: string;
+        level?: number;
+        gsv?: number;
+        csv?: number;
+        dcsv?: number;
+        status?: string;
+        performance?: string;
+        joinDate?: string;
+        lastActivity?: string;
+      }>;
+      links: Array<{ source: string; target: string }>;
+      period: string;
+      person_id: number;
+    }>(`/api/accounts/${personId}/team-network?period=${period}`);
     
-    return nodes.slice(0, 100).map((node, index) => ({
+    // Filter out the root node (the user themselves) and extract team members
+    const nodes = response.nodes || [];
+    const teamMembers = nodes.filter(node => node.level !== 0 && node.id !== String(personId));
+    
+    return teamMembers.slice(0, 100).map((node, index) => ({
       id: node.id || node.external_id || `downline-${index}`,
       personId: node.external_id || node.id || '',
       name: node.name || `Team Member ${index + 1}`,
-      rank: node.current_title || node.role || 'Brand Rep',
-      title: node.current_title || 'Member',
+      rank: node.title || node.current_title || 'Member',
+      title: node.title || node.current_title || 'Member',
       volume: node.gsv || 0,
       gsv: node.gsv || 0,
       csv: node.csv || 0,
       growth: 0, // Not available in API response
-      active: true, // Assume active
-      depth: node.depth || 1,
+      active: node.status === 'active' || node.performance !== 'inactive',
+      depth: node.level || 1,
     }));
   },
 
